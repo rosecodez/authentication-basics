@@ -4,6 +4,7 @@ const session = require("express-session");
 const passport = require("passport");
 const LocalStrategy = require("passport-local").Strategy;
 const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
 
 const mongoDb =
   "mongodb+srv://rosebeats09:Qd5opN0yUfkPdGdq@cluster0.feayzog.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
@@ -35,7 +36,8 @@ passport.use(
       if (!user) {
         return done(null, false, { message: "Incorrect username" });
       }
-      if (user.password !== password) {
+      const match = await bcrypt.compare(password, user.password);
+      if (!match) {
         return done(null, false, { message: "Incorrect password" });
       }
       return done(null, user);
@@ -71,12 +73,18 @@ app.get("/sign-up", (req, res) => res.render("sign-up-form"));
 
 app.post("/sign-up", async (req, res, next) => {
   try {
-    const user = new User({
-      username: req.body.username,
-      password: req.body.password,
+    bcrypt.hash(req.body.password, 10, async (err, hashedPassword) => {
+      if (err) {
+        return next(err);
+      }
+
+      const user = new User({
+        username: req.body.username,
+        password: hashedPassword,
+      });
+      await user.save();
+      res.redirect("/");
     });
-    await user.save();
-    res.redirect("/");
   } catch (err) {
     return next(err);
   }
